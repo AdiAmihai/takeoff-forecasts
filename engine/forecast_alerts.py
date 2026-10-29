@@ -30,6 +30,12 @@ SHIFT_SPEED_KMH = 3     # avg speed changed > this -> shifted
 MIN_MODELS = 2          # hours with fewer models available are skipped
 DEFAULT_MAX_CLOUD = 75  # % total cloud cover; hours above a spot's max break a window
 API = "https://api.open-meteo.com/v1/forecast"
+# Windguru link for each spot: the spot's own "windguru" URL if set, else the map at its coordinates.
+WINDGURU_MAP = "https://www.windguru.cz/map/?lat={lat}&lon={lon}&zoom=12"
+
+
+def windguru_url(spot):
+    return spot.get("windguru") or WINDGURU_MAP.format(lat=spot["lat"], lon=spot["lon"])
 
 
 def fetch(spot, retries=4):
@@ -239,7 +245,8 @@ def export(out, prev_rows, d):
                             "was_speed": p.get("avg_speed", "")})
     spots = [{"spot": s["name"], "spot_id": s["id"], "hours": f"{s['hours'][0]:02d}–{s['hours'][1]:02d}",
               "dir": f"{s['dir'][0]}→{s['dir'][1]}", "speed": f"{s['speed'][0]}–{s['speed'][1]}",
-              "min_hours": s["min_hours"], "max_cloud": s["max_cloud"], "windows": len(s["windows"])} for s in out["spots"]]
+              "min_hours": s["min_hours"], "max_cloud": s["max_cloud"], "windows": len(s["windows"]),
+              "lat": s["lat"], "lon": s["lon"], "windguru": s["windguru"]} for s in out["spots"]]
     run = [{"run_at": out["run_at"], "version": out["version"], "first_run": out["first_run"],
             "windows": len(windows), "changes": len(changes),
             "spots_with_windows": sum(1 for s in out["spots"] if s["windows"]),
@@ -321,6 +328,9 @@ def validate_config(cfg):
             errs.append(f'{who}: "min_hours" is longer than its hours range')
         if "max_cloud" in sp and not (_num(sp["max_cloud"]) and 0 <= sp["max_cloud"] <= 100):
             errs.append(f'{who}: "max_cloud" must be a number 0–100')
+        if "windguru" in sp and not (isinstance(sp["windguru"], str)
+                                     and sp["windguru"].startswith("https://www.windguru.cz/")):
+            errs.append(f'{who}: "windguru" must be a link starting with https://www.windguru.cz/')
     return errs
 
 
@@ -340,7 +350,10 @@ def load_config(path):
 
 def spots_from(cfg):
     dflt = cfg.get("defaults", {})
-    return [{"max_cloud": dflt.get("max_cloud", DEFAULT_MAX_CLOUD), **s} for s in cfg["spots"]]
+    spots = [{"max_cloud": dflt.get("max_cloud", DEFAULT_MAX_CLOUD), **s} for s in cfg["spots"]]
+    for s in spots:
+        s["windguru"] = windguru_url(s)
+    return spots
 
 
 def main():
@@ -394,7 +407,8 @@ def main():
         rows = blend(fetch(spot))
         wins = [w for w in find_windows(spot, rows) if _dt(w["end"]) > now]
         changes = [] if first_run else diff(prev.get(spot["id"], []), wins, now)
-        out["spots"].append({**{k: spot[k] for k in ("id", "name", "lat", "lon", "hours", "dir", "speed", "min_hours", "max_cloud")},
+        out["spots"].append({**{k: spot[k] for k in ("id", "name", "lat", "lon", "hours", "dir", "speed",
+                                                     "min_hours", "max_cloud", "windguru")},
                              "windows": wins, "changes": changes})
     out["change_count"] = sum(len(s["changes"]) for s in out["spots"])
     note = notification(out)

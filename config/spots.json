@@ -10,6 +10,8 @@
     {"id": "matred", "name": "Mitzpe Ramon", "lat": 30.605278, "lon": 34.796111, "hours": [9, 14], "dir": [230, 133], "speed": [5, 15], "min_hours": 2},
     {"id": "nahshon", "name": "Tsera", "lat": 31.83117, "lon": 34.95548, "hours": [9, 16], "dir": [140, 230], "speed": [10, 15], "min_hours": 2},
     {"id": "sharona", "name": "Sharona", "lat": 32.72533, "lon": 35.46692, "hours": [6, 17], "dir": [70, 130], "speed": [12, 22], "min_hours": 2},
-    {"id": "metzoke-dragot", "name": "Metzoke Dragot", "lat": 31.59126, "lon": 35.39327, "hours": [10, 15], "dir": [20, 130], "speed": [8, 16], "min_hours": 2}
+    {"id": "metzoke-dragot", "name": "Metzoke Dragot", "lat": 31.59126, "lon": 35.39327, "hours": [10, 15], "dir": [20, 130], "speed": [8, 16], "min_hours": 2},
+    {"id": "Har Avnoon", "name":"Har Avnoon","lat":30.9706717,  "lon": 34.977567, "hours": [10,14], "dir": [100,220]. "speed": [14,18], "min_hours": 2),
+    {"id": "Snapir Katan", "name":"Snapir Katan","lat":30.946581 , "lon": 35.026324, "hours": [10,14], "dir": [260,300]. "speed": [14,18], "min_hours": 2)
   ]
 }

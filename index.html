@@ -24,10 +24,10 @@
   .card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px; min-width: 0; }
   .card h2 { font-size: 17px; font-weight: 600; margin: 0; }
   .note { color: var(--muted); font-size: 13px; margin: 4px 0 12px; }
-  .scroll { overflow: auto; max-height: 30rem; -webkit-overflow-scrolling: touch; }
+  .scroll { overflow-x: auto; overflow-y: visible; -webkit-overflow-scrolling: touch; }
   table { border-collapse: collapse; width: 100%; font-size: 13px; font-variant-numeric: tabular-nums; }
   th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; vertical-align: top; }
-  th { position: sticky; top: 0; background: var(--panel); color: var(--muted); font-weight: 600; z-index: 1; }
+  th { background: var(--panel); color: var(--muted); font-weight: 600; }
   .num { text-align: right; }
   .grid td { min-width: 6.2rem; }
   .grid th.day { text-align: center; }

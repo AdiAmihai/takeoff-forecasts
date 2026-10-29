@@ -26,15 +26,17 @@ Separate spots with commas; no comma after the last one.
 
 **If you make a mistake** (missing comma, min > max…), the run keeps using the last good criteria and your notification says what to fix, e.g. `spot #3 (Tavor take off): "speed" must be [min, max] km/h with min ≤ max`.
 
-## Run it now
-GitHub (web or mobile app) → this repo → **Actions** → **Run forecast now** → **Run workflow**. About 1–2 minutes later the site shows the new forecast. This updates the website only; the claude.ai dashboard and phone notification update on the next scheduled run (or ask Claude "run now" for a full run).
+## How it runs
+- **Automatically** twice a day: this repo's GitHub Action runs the forecast (≈03:15 / 15:15 Israel winter time, ≈04:15 / 16:15 summer time) and publishes `data/forecast.json`; Cloudflare updates the site within a minute.
+- **Now:** GitHub (web or mobile app) → this repo → **Actions** → **Run forecast now** → **Run workflow**.
+- The claude.ai task (≈04:48 / 16:48) reads the latest site data, refreshes the private dashboard and sends the phone notification when windows change or this config has a problem.
 
 ## Files
 - `index.html` — the public page (static, no build step)
-- `data/forecast.json` — refreshed by every scheduled run
+- `data/forecast.json` — written by the GitHub Action on every run
 - `config/spots.json` — your criteria (kept off the website)
-- `engine/` — forecast engine used by the manual run (`spots.json` there is the fallback criteria)
-- `.github/workflows/run-forecast.yml` — the manual run button
+- `engine/` — the forecast engine (`spots.json` there is the fallback if `config/spots.json` has an error)
+- `.github/workflows/run-forecast.yml` — scheduled + manual forecast runs
 - `.assetsignore` — keeps `config/`, `engine/`, `.github/` and Markdown files off the website
 - `_headers` — no-cache for the data file
 

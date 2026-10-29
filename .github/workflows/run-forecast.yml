@@ -1,9 +1,14 @@
 name: Run forecast now
 
-# Manual run: GitHub → Actions → "Run forecast now" → Run workflow
-# (also works from the GitHub mobile app). Updates the public site only;
-# the claude.ai dashboard and push notification update on the next scheduled run.
+# The forecast engine of record (v2.0.0).
+# - Scheduled: 01:15 and 13:15 UTC = 03:15/15:15 Israel winter time, 04:15/16:15 summer time,
+#   always before the claude.ai run (~04:48/16:48) that reads data/forecast.json for the
+#   dashboard and phone notification.
+# - Manual: GitHub → Actions → "Run forecast now" → Run workflow (also from the mobile app).
 on:
+  schedule:
+    - cron: "15 1 * * *"
+    - cron: "15 13 * * *"
   workflow_dispatch:
 
 permissions:
@@ -58,6 +63,7 @@ jobs:
 
       - name: Publish data
         run: |
+          trap 'echo "::error title=Publish failed::line $LINENO: $BASH_COMMAND"' ERR
           cp run/export/forecast.json data/forecast.json
           git config user.name "Adi"
           git config user.email "amihai.adi@gmail.com"
@@ -67,9 +73,14 @@ jobs:
             exit 0
           fi
           RUN_AT=$(python3 -c "import json;print(json.load(open('run/result.json'))['run_at'])")
-          git commit -m "data: manual forecast $RUN_AT"
+          git commit -q -m "data: forecast $RUN_AT (${{ github.event_name }})"
           for i in 1 2 3; do
-            git pull --rebase origin main && git push origin HEAD:main && exit 0
+            if git pull -q --rebase origin main && git push -q origin HEAD:main; then
+              echo "::notice title=Published::forecast $RUN_AT"
+              exit 0
+            fi
+            echo "::warning title=Push retry::attempt $i failed"
             sleep 5
           done
+          echo "::error title=Publish failed::could not push after 3 attempts"
           exit 1

@@ -33,6 +33,8 @@
   .grid th.day { text-align: center; }
   .grid td:first-child, .grid th:first-child { position: sticky; left: 0; background: var(--panel); z-index: 2; }
   .spot { font-weight: 600; display: block; }
+  a.wg { color: inherit; text-decoration: underline; text-decoration-color: var(--muted); text-decoration-style: dotted; text-underline-offset: 3px; }
+  a.wg:hover { color: var(--accent); text-decoration-color: var(--accent); }
   .crit { color: var(--muted); font-size: 11px; display: block; }
   .win { display: block; border-radius: 6px; padding: 3px 7px; margin: 2px 0; background: var(--ok-bg); }
   .win.gust { background: var(--warn-bg); }
@@ -81,7 +83,7 @@
     </section>
     <section class="card">
       <h2>Takeoff criteria</h2>
-      <p class="note">Direction is where the wind blows from, read clockwise; hours are local (Israel time).</p>
+      <p class="note">Direction is where the wind blows from, read clockwise; hours are local (Israel time). Takeoff names link to Windguru.</p>
       <div class="scroll" id="spots"></div>
     </section>
   </div>
@@ -98,6 +100,13 @@
   function n1(x) { return x === '' || x == null ? '' : Number(x).toFixed(1); }
   function i0(x) { return x === '' || x == null ? '' : String(Math.round(Number(x))); }
   function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+  var WG = {};  // spot_id -> Windguru link (from the spots list)
+  function spotLink(r, text) {
+    var href = WG[r.spot_id] || r.windguru;
+    if (!href || !/^https:\/\/www\.windguru\.cz\//.test(href)) return document.createTextNode(text);
+    var a = el('a', 'wg', text); a.href = href; a.target = '_blank'; a.rel = 'noopener';
+    a.title = 'Open ' + text + ' in Windguru'; return a;
+  }
   function isGusty(w) { return w.gusty === true || w.gusty === 'true' || w.gusty === 'True'; }
 
   function table(cols, rows, emptyText) {
@@ -106,13 +115,18 @@
     cols.forEach(function (c) { hr.appendChild(el('th', c.num ? 'num' : '', c.label)); });
     rows.forEach(function (r) {
       var tr = tb.insertRow();
-      cols.forEach(function (c) { var td = el('td', (c.num ? 'num ' : '') + (c.cls ? c.cls(r) : ''), c.get(r)); tr.appendChild(td); });
+      cols.forEach(function (c) {
+        var td = el('td', (c.num ? 'num ' : '') + (c.cls ? c.cls(r) : ''), c.link ? null : c.get(r));
+        if (c.link) td.appendChild(spotLink(r, c.get(r)));
+        tr.appendChild(td);
+      });
     });
     return t;
   }
 
   function render(d) {
     var run = d.run;
+    d.spots.forEach(function (s) { if (s.windguru) WG[s.spot_id] = s.windguru; });
     document.getElementById('lede').replaceChildren(
       el('b', '', String(run.windows)), document.createTextNode(' flyable windows at '),
       el('b', '', String(run.spots_with_windows)), document.createTextNode(' of ' + d.spots.length + ' takeoffs in the next 7 days · '),
@@ -126,7 +140,7 @@
     days.forEach(function (x) { hr.appendChild(el('th', 'day', day(x))); });
     d.spots.forEach(function (s) {
       var tr = tb.insertRow(), c0 = tr.insertCell();
-      c0.appendChild(el('span', 'spot', s.spot));
+      var nm = el('span', 'spot'); nm.appendChild(spotLink(s, s.spot)); c0.appendChild(nm);
       c0.appendChild(el('span', 'crit', s.dir + '° · ' + s.speed + ' km/h · ' + s.hours + ' · ☁≤' + s.max_cloud + '%'));
       days.forEach(function (x) {
         var c = tr.insertCell();
@@ -141,7 +155,7 @@
     document.getElementById('grid').replaceChildren(t);
 
     document.getElementById('changes').replaceChildren(table([
-      { label: 'Takeoff', get: function (r) { return r.spot; } },
+      { label: 'Takeoff', link: 1, get: function (r) { return r.spot; } },
       { label: 'Change', get: function (r) { return r.change; }, cls: function (r) { return 'chg-' + r.change; } },
       { label: 'Window', get: function (r) { return span(r.start, r.end); } },
       { label: 'Avg km/h', num: 1, get: function (r) { return n1(r.avg_speed); } },
@@ -150,7 +164,7 @@
     ], d.changes, run.first_run ? 'First run — this is the baseline; changes appear from the next run.' : 'No changes since the previous run.'));
 
     document.getElementById('windows').replaceChildren(table([
-      { label: 'Takeoff', get: function (r) { return r.spot; } },
+      { label: 'Takeoff', link: 1, get: function (r) { return r.spot; } },
       { label: 'Day', get: function (r) { return day(r.date); } },
       { label: 'From', get: function (r) { return hm(r.start); } },
       { label: 'To', get: function (r) { return hm(r.end); } },
@@ -166,14 +180,14 @@
     ], d.windows, 'No flyable windows in the next 7 days.'));
 
     document.getElementById('previous').replaceChildren(table([
-      { label: 'Takeoff', get: function (r) { return r.spot; } },
+      { label: 'Takeoff', link: 1, get: function (r) { return r.spot; } },
       { label: 'Window', get: function (r) { return span(r.start, r.end); } },
       { label: 'Avg km/h', num: 1, get: function (r) { return n1(r.avg_speed); } },
       { label: 'Dir °', num: 1, get: function (r) { return String(r.avg_dir); } }
     ], d.previous, 'Nothing stored yet.'));
 
     document.getElementById('spots').replaceChildren(table([
-      { label: 'Takeoff', get: function (r) { return r.spot; } },
+      { label: 'Takeoff', link: 1, get: function (r) { return r.spot; } },
       { label: 'Hours', get: function (r) { return r.hours; } },
       { label: 'Direction', get: function (r) { return r.dir + '°'; } },
       { label: 'km/h', get: function (r) { return r.speed; } },

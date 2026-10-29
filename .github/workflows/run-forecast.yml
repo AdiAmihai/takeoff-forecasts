@@ -1,0 +1,73 @@
+name: Run forecast now
+
+# Manual run: GitHub → Actions → "Run forecast now" → Run workflow
+# (also works from the GitHub mobile app). Updates the public site only;
+# the claude.ai dashboard and push notification update on the next scheduled run.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: forecast-data
+  cancel-in-progress: false
+
+jobs:
+  forecast:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Previous windows from the current site data
+        run: |
+          mkdir -p run
+          python3 - <<'EOF'
+          import json, pathlib
+          p = pathlib.Path("data/forecast.json")
+          rows = json.loads(p.read_text())["windows"] if p.exists() else None
+          if rows is not None:
+              pathlib.Path("run/prev.json").write_text(json.dumps(rows, ensure_ascii=False))
+          EOF
+
+      - name: Run engine
+        run: |
+          PREV=""
+          [ -f run/prev.json ] && PREV="--prev run/prev.json"
+          COMMIT=$(git log -1 --format=%h -- config/spots.json)
+          python3 engine/forecast_alerts.py \
+            --spots config/spots.json \
+            --fallback-spots engine/spots.json \
+            --config-commit "$COMMIT" \
+            $PREV \
+            --out run/result.json \
+            --export-dir run/export | tee run/summary.txt
+          {
+            echo "### Forecast run"
+            echo '```'
+            cat run/summary.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Publish data
+        run: |
+          cp run/export/forecast.json data/forecast.json
+          git config user.name "Adi"
+          git config user.email "amihai.adi@gmail.com"
+          git add data/forecast.json
+          if git diff --cached --quiet; then
+            echo "No data change."
+            exit 0
+          fi
+          RUN_AT=$(python3 -c "import json;print(json.load(open('run/result.json'))['run_at'])")
+          git commit -m "data: manual forecast $RUN_AT"
+          for i in 1 2 3; do
+            git pull --rebase origin main && git push origin HEAD:main && exit 0
+            sleep 5
+          done
+          exit 1

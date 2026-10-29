@@ -26,11 +26,16 @@ Separate spots with commas; no comma after the last one.
 
 **If you make a mistake** (missing comma, min > max…), the run keeps using the last good criteria and your notification says what to fix, e.g. `spot #3 (Tavor take off): "speed" must be [min, max] km/h with min ≤ max`.
 
+## Run it now
+GitHub (web or mobile app) → this repo → **Actions** → **Run forecast now** → **Run workflow**. About 1–2 minutes later the site shows the new forecast. This updates the website only; the claude.ai dashboard and phone notification update on the next scheduled run (or ask Claude "run now" for a full run).
+
 ## Files
 - `index.html` — the public page (static, no build step)
 - `data/forecast.json` — refreshed by every scheduled run
 - `config/spots.json` — your criteria (kept off the website)
-- `.assetsignore` — keeps `config/` and Markdown files off the website
+- `engine/` — forecast engine used by the manual run (`spots.json` there is the fallback criteria)
+- `.github/workflows/run-forecast.yml` — the manual run button
+- `.assetsignore` — keeps `config/`, `engine/`, `.github/` and Markdown files off the website
 - `_headers` — no-cache for the data file
 
 Forecast data © Open-Meteo, CC BY 4.0. Model output, not a safety guarantee.

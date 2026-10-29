@@ -1,7 +1,7 @@
 {
  "run": {
-  "run_at": "2026-10-29T18:32:38+02:00",
-  "version": "2.0.1",
+  "run_at": "2026-10-29T19:12:39+02:00",
+  "version": "2.1.0",
   "first_run": false,
   "windows": 22,
   "changes": 0,
@@ -398,7 +398,10 @@
    "speed": "5–20",
    "min_hours": 2,
    "max_cloud": 75,
-   "windows": 4
+   "windows": 4,
+   "lat": 32.954072,
+   "lon": 35.374492,
+   "windguru": "https://www.windguru.cz/map/?lat=32.954072&lon=35.374492&zoom=12"
   },
   {
    "spot": "Sharona",
@@ -408,7 +411,10 @@
    "speed": "12–22",
    "min_hours": 2,
    "max_cloud": 75,
-   "windows": 0
+   "windows": 0,
+   "lat": 32.72539,
+   "lon": 35.477841,
+   "windguru": "https://www.windguru.cz/map/?lat=32.72539&lon=35.477841&zoom=12"
   },
   {
    "spot": "Tavor",
@@ -418,7 +424,10 @@
    "speed": "10–16",
    "min_hours": 2,
    "max_cloud": 75,
-   "windows": 3
+   "windows": 3,
+   "lat": 32.688831,
+   "lon": 35.38186,
+   "windguru": "https://www.windguru.cz/map/?lat=32.688831&lon=35.38186&zoom=12"
   },
   {
    "spot": "Zichron-yaakov",
@@ -428,7 +437,10 @@
    "speed": "13–25",
    "min_hours": 2,
    "max_cloud": 75,
-   "windows": 4
+   "windows": 4,
+   "lat": 32.580567,
+   "lon": 34.946129,
+   "windguru": "https://www.windguru.cz/map/?lat=32.580567&lon=34.946129&zoom=12"
   },
   {
    "spot": "Gilboa",
@@ -438,7 +450,10 @@
    "speed": "5–18",
    "min_hours": 2,
    "max_cloud": 75,
-   "windows": 1
+   "windows": 1,
+   "lat": 32.535868,
+   "lon": 35.376974,
+   "windguru": "https://www.windguru.cz/map/?lat=32.535868&lon=35.376974&zoom=12"
   },
   {
    "spot": "Arsuf",
@@ -448,7 +463,10 @@
    "speed": "10–17",
    "min_hours": 2,
    "max_cloud": 75,
-   "windows": 4
+   "windows": 4,
+   "lat": 32.204834,
+   "lon": 34.810848,
+   "windguru": "https://www.windguru.cz/map/?lat=32.204834&lon=34.810848&zoom=12"
   },
   {
    "spot": "Tsera",
@@ -458,7 +476,10 @@
    "speed": "10–15",
    "min_hours": 2,
    "max_cloud": 75,
-   "windows": 0
+   "windows": 0,
+   "lat": 31.771368,
+   "lon": 34.962099,
+   "windguru": "https://www.windguru.cz/map/?lat=31.771368&lon=34.962099&zoom=12"
   },
   {
    "spot": "Metzoke Dragot",
@@ -468,7 +489,10 @@
    "speed": "8–16",
    "min_hours": 2,
    "max_cloud": 75,
-   "windows": 2
+   "windows": 2,
+   "lat": 31.596062,
+   "lon": 35.395684,
+   "windguru": "https://www.windguru.cz/map/?lat=31.596062&lon=35.395684&zoom=12"
   },
   {
    "spot": "Har Avnoon",
@@ -478,7 +502,10 @@
    "speed": "14–18",
    "min_hours": 2,
    "max_cloud": 75,
-   "windows": 0
+   "windows": 0,
+   "lat": 30.9706717,
+   "lon": 34.977567,
+   "windguru": "https://www.windguru.cz/map/?lat=30.9706717&lon=34.977567&zoom=12"
   },
   {
    "spot": "Snapir Katan",
@@ -488,7 +515,10 @@
    "speed": "14–18",
    "min_hours": 2,
    "max_cloud": 75,
-   "windows": 0
+   "windows": 0,
+   "lat": 30.946581,
+   "lon": 35.026324,
+   "windguru": "https://www.windguru.cz/map/?lat=30.946581&lon=35.026324&zoom=12"
   },
   {
    "spot": "Har Gamal",
@@ -498,7 +528,10 @@
    "speed": "5–15",
    "min_hours": 2,
    "max_cloud": 75,
-   "windows": 4
+   "windows": 4,
+   "lat": 30.602766,
+   "lon": 34.79684,
+   "windguru": "https://www.windguru.cz/map/?lat=30.602766&lon=34.79684&zoom=12"
   }
  ],
  "previous": [

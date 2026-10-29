@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Takeoff Forecasts</title>
+<meta name="description" content="Paragliding wind windows for Israeli takeoffs, 7 days ahead, blended from six forecast models. Updated twice daily.">
+<style>
+  :root {
+    --bg: #f7f6f2; --panel: #ffffff; --fg: #1d1c1a; --muted: #6b6862; --line: #e4e1da;
+    --ok: #2f7d4f; --ok-bg: #e2f1e7; --warn: #a1630b; --warn-bg: #fbecd2; --bad: #b3372b;
+    --accent: #2d5d8a; --radius: 10px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #151514; --panel: #1f1e1c; --fg: #ecebe7; --muted: #a29f98; --line: #34322f;
+      --ok: #6fca93; --ok-bg: #1f3a2a; --warn: #e6ad5c; --warn-bg: #43321a; --bad: #e57a6e; --accent: #8db8e0; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 24px 16px 48px; display: grid; gap: 18px; }
+  header h1 { font: 400 30px/1.15 Georgia, "Times New Roman", serif; margin: 0; }
+  .lede { color: var(--muted); margin: 6px 0 0; }
+  .lede b { color: var(--fg); font-variant-numeric: tabular-nums; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px; min-width: 0; }
+  .card h2 { font-size: 17px; font-weight: 600; margin: 0; }
+  .note { color: var(--muted); font-size: 13px; margin: 4px 0 12px; }
+  .scroll { overflow: auto; max-height: 30rem; -webkit-overflow-scrolling: touch; }
+  table { border-collapse: collapse; width: 100%; font-size: 13px; font-variant-numeric: tabular-nums; }
+  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; vertical-align: top; }
+  th { position: sticky; top: 0; background: var(--panel); color: var(--muted); font-weight: 600; z-index: 1; }
+  .num { text-align: right; }
+  .grid td { min-width: 6.2rem; }
+  .grid th.day { text-align: center; }
+  .grid td:first-child, .grid th:first-child { position: sticky; left: 0; background: var(--panel); z-index: 2; }
+  .spot { font-weight: 600; display: block; }
+  .crit { color: var(--muted); font-size: 11px; display: block; }
+  .win { display: block; border-radius: 6px; padding: 3px 7px; margin: 2px 0; background: var(--ok-bg); }
+  .win.gust { background: var(--warn-bg); }
+  .win small { color: var(--muted); display: block; font-size: 11px; }
+  .legend { display: flex; flex-wrap: wrap; gap: 14px; color: var(--muted); font-size: 12px; margin-top: 10px; }
+  .legend i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: -2px; margin-right: 5px; }
+  .chg-new { color: var(--ok); font-weight: 600; } .chg-removed { color: var(--bad); font-weight: 600; } .chg-shifted { color: var(--warn); font-weight: 600; }
+  .pair { display: grid; gap: 18px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 24rem), 1fr)); }
+  .empty { color: var(--muted); font-size: 13px; }
+  .err { color: var(--bad); }
+  footer { color: var(--muted); font-size: 12px; }
+  footer a { color: var(--accent); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Takeoff Forecasts</h1>
+    <p class="lede" id="lede">Loading forecast…</p>
+  </header>
+
+  <section class="card">
+    <h2>Next 7 days by takeoff</h2>
+    <p class="note">A window is at least 2 hours where the blended forecast (mean of GFS, ICON, ECMWF IFS, ARPEGE, UKMO, GEM) stays inside the takeoff's direction and speed range, with total cloud cover at or below its limit. Each block: hours · average km/h · direction · ± speed spread across models · cloud cover.</p>
+    <div class="scroll grid" id="grid"></div>
+    <div class="legend"><span><i style="background:var(--ok-bg)"></i>Window</span><span><i style="background:var(--warn-bg)"></i>⚠️ Gusts more than 10 km/h above wind speed in at least one hour</span></div>
+  </section>
+
+  <section class="card">
+    <h2>Changes since the previous run</h2>
+    <p class="note">New, removed, or shifted windows (start or end moved ≥1 h, or average speed changed by more than 3 km/h).</p>
+    <div class="scroll" id="changes"></div>
+  </section>
+
+  <section class="card">
+    <h2>All current windows</h2>
+    <p class="note">Spread is the standard deviation across models: low means the models agree.</p>
+    <div class="scroll" id="windows"></div>
+  </section>
+
+  <div class="pair">
+    <section class="card">
+      <h2>Previous run</h2>
+      <p class="note">The windows this run was compared against.</p>
+      <div class="scroll" id="previous"></div>
+    </section>
+    <section class="card">
+      <h2>Takeoff criteria</h2>
+      <p class="note">Direction is where the wind blows from, read clockwise; hours are local (Israel time).</p>
+      <div class="scroll" id="spots"></div>
+    </section>
+  </div>
+
+  <footer>Forecast data: <a href="https://open-meteo.com/">Open-Meteo</a> (CC BY 4.0). Model output, not a safety guarantee — always check conditions on site. Updated around 05:00 and 17:00 Israel time.</footer>
+</div>
+
+<script>
+(function () {
+  var DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  function day(s) { var d = new Date(s.slice(0, 10) + 'T12:00:00Z'); return DAYS[d.getUTCDay()] + ' ' + s.slice(8, 10) + '/' + s.slice(5, 7); }
+  function hm(s) { return s ? s.slice(11, 16) : ''; }
+  function span(a, b) { return a ? day(a) + ' ' + hm(a) + '–' + hm(b) : ''; }
+  function n1(x) { return x === '' || x == null ? '' : Number(x).toFixed(1); }
+  function i0(x) { return x === '' || x == null ? '' : String(Math.round(Number(x))); }
+  function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+  function isGusty(w) { return w.gusty === true || w.gusty === 'true' || w.gusty === 'True'; }
+
+  function table(cols, rows, emptyText) {
+    if (!rows.length) return el('p', 'empty', emptyText);
+    var t = el('table'), hr = t.createTHead().insertRow(), tb = t.createTBody();
+    cols.forEach(function (c) { hr.appendChild(el('th', c.num ? 'num' : '', c.label)); });
+    rows.forEach(function (r) {
+      var tr = tb.insertRow();
+      cols.forEach(function (c) { var td = el('td', (c.num ? 'num ' : '') + (c.cls ? c.cls(r) : ''), c.get(r)); tr.appendChild(td); });
+    });
+    return t;
+  }
+
+  function render(d) {
+    var run = d.run;
+    document.getElementById('lede').replaceChildren(
+      el('b', '', String(run.windows)), document.createTextNode(' flyable windows at '),
+      el('b', '', String(run.spots_with_windows)), document.createTextNode(' of ' + d.spots.length + ' takeoffs in the next 7 days · '),
+      el('b', '', String(run.changes)), document.createTextNode(' changes since the previous run · updated ' + day(run.run_at) + ' ' + hm(run.run_at) + ' · v' + run.version));
+
+    var d0 = new Date(run.run_at.slice(0, 10) + 'T12:00:00Z'), days = [];
+    for (var k = 0; k < 7; k++) days.push(new Date(d0.getTime() + k * 864e5).toISOString().slice(0, 10));
+    var t = el('table'), hr = t.createTHead().insertRow(), tb = t.createTBody();
+    hr.appendChild(el('th', '', 'Takeoff'));
+    days.forEach(function (x) { hr.appendChild(el('th', 'day', day(x))); });
+    d.spots.forEach(function (s) {
+      var tr = tb.insertRow(), c0 = tr.insertCell();
+      c0.appendChild(el('span', 'spot', s.spot));
+      c0.appendChild(el('span', 'crit', s.dir + '° · ' + s.speed + ' km/h · ' + s.hours + ' · ☁≤' + s.max_cloud + '%'));
+      days.forEach(function (x) {
+        var c = tr.insertCell();
+        d.windows.filter(function (w) { return w.spot === s.spot && w.date === x; }).forEach(function (w) {
+          var g = isGusty(w), b = el('span', 'win' + (g ? ' gust' : ''), hm(w.start) + '–' + hm(w.end) + (g ? ' ⚠️' : ''));
+          var cloud = w.avg_cloud == null || w.avg_cloud === '' ? '' : ' · ☁' + w.avg_cloud + '%';
+          b.appendChild(el('small', '', Math.round(w.avg_speed) + ' km/h ' + w.avg_dir + '° ±' + Math.round(w.spread_speed) + cloud));
+          c.appendChild(b);
+        });
+      });
+    });
+    document.getElementById('grid').replaceChildren(t);
+
+    document.getElementById('changes').replaceChildren(table([
+      { label: 'Takeoff', get: function (r) { return r.spot; } },
+      { label: 'Change', get: function (r) { return r.change; }, cls: function (r) { return 'chg-' + r.change; } },
+      { label: 'Window', get: function (r) { return span(r.start, r.end); } },
+      { label: 'Avg km/h', num: 1, get: function (r) { return n1(r.avg_speed); } },
+      { label: 'Was', get: function (r) { return span(r.was_start, r.was_end); } },
+      { label: 'Was km/h', num: 1, get: function (r) { return n1(r.was_speed); } }
+    ], d.changes, run.first_run ? 'First run — this is the baseline; changes appear from the next run.' : 'No changes since the previous run.'));
+
+    document.getElementById('windows').replaceChildren(table([
+      { label: 'Takeoff', get: function (r) { return r.spot; } },
+      { label: 'Day', get: function (r) { return day(r.date); } },
+      { label: 'From', get: function (r) { return hm(r.start); } },
+      { label: 'To', get: function (r) { return hm(r.end); } },
+      { label: 'Hours', num: 1, get: function (r) { return String(r.hours); } },
+      { label: 'Avg km/h', num: 1, get: function (r) { return n1(r.avg_speed); } },
+      { label: 'Max gust', num: 1, get: function (r) { return n1(r.max_gust); } },
+      { label: 'Dir °', num: 1, get: function (r) { return String(r.avg_dir); } },
+      { label: '± km/h', num: 1, get: function (r) { return n1(r.spread_speed); } },
+      { label: '± °', num: 1, get: function (r) { return String(r.spread_dir); } },
+      { label: 'Cloud %', num: 1, get: function (r) { return i0(r.avg_cloud); } },
+      { label: '± cloud', num: 1, get: function (r) { return i0(r.spread_cloud); } },
+      { label: '⚠️ hours', get: function (r) { return r.gust_hours || ''; } }
+    ], d.windows, 'No flyable windows in the next 7 days.'));
+
+    document.getElementById('previous').replaceChildren(table([
+      { label: 'Takeoff', get: function (r) { return r.spot; } },
+      { label: 'Window', get: function (r) { return span(r.start, r.end); } },
+      { label: 'Avg km/h', num: 1, get: function (r) { return n1(r.avg_speed); } },
+      { label: 'Dir °', num: 1, get: function (r) { return String(r.avg_dir); } }
+    ], d.previous, 'Nothing stored yet.'));
+
+    document.getElementById('spots').replaceChildren(table([
+      { label: 'Takeoff', get: function (r) { return r.spot; } },
+      { label: 'Hours', get: function (r) { return r.hours; } },
+      { label: 'Direction', get: function (r) { return r.dir + '°'; } },
+      { label: 'km/h', get: function (r) { return r.speed; } },
+      { label: 'Min h', num: 1, get: function (r) { return String(r.min_hours); } },
+      { label: 'Max cloud %', num: 1, get: function (r) { return i0(r.max_cloud); } },
+      { label: 'Windows', num: 1, get: function (r) { return String(r.windows); } }
+    ], d.spots, ''));
+  }
+
+  fetch('data/forecast.json?t=' + Date.now(), { cache: 'no-store' })
+    .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+    .then(render)
+    .catch(function () { var l = document.getElementById('lede'); l.textContent = 'Forecast data could not be loaded. Try again in a few minutes.'; l.className = 'lede err'; });
+})();
+</script>
+</body>
+</html>

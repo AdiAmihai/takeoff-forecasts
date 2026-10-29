@@ -1,16 +1,16 @@
 {
  "run": {
-  "run_at": "2026-10-29T18:06:30+02:00",
+  "run_at": "2026-10-29T18:09:07+02:00",
   "version": "2.0.1",
   "first_run": false,
   "windows": 20,
   "changes": 0,
   "spots_with_windows": 7,
   "models": "GFS, ICON, ECMWF IFS, ARPEGE, UKMO, GEM",
-  "notification": "⚠️ spots.json was not used (spot #10 (Har Avnoon): \"id\" must be lowercase letters, digits and dashes; spot #11 (Snapir Katan): \"id\" must be lowercase letters, digits and dashes). Using the last good criteria.",
-  "config_source": "fallback",
-  "config_commit": "",
-  "config_error": "spot #10 (Har Avnoon): \"id\" must be lowercase letters, digits and dashes; spot #11 (Snapir Katan): \"id\" must be lowercase letters, digits and dashes"
+  "notification": "",
+  "config_source": "primary",
+  "config_commit": "07e93d4",
+  "config_error": ""
  },
  "windows": [
   {
@@ -445,6 +445,26 @@
    "min_hours": 2,
    "max_cloud": 75,
    "windows": 2
+  },
+  {
+   "spot": "Har Avnoon",
+   "spot_id": "har-avnoon",
+   "hours": "10–14",
+   "dir": "100→220",
+   "speed": "14–18",
+   "min_hours": 2,
+   "max_cloud": 75,
+   "windows": 0
+  },
+  {
+   "spot": "Snapir Katan",
+   "spot_id": "snapir-katan",
+   "hours": "10–14",
+   "dir": "260→300",
+   "speed": "14–18",
+   "min_hours": 2,
+   "max_cloud": 75,
+   "windows": 0
   }
  ],
  "previous": [

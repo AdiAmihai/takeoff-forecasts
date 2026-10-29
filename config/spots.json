@@ -1,0 +1,15 @@
+{
+  "_notes": "id = fixed internal key, never change it (renaming 'name' is safe). name = display name. lat/lon = takeoff location. hours = [start, end] local Israel time hour slots (9,16 = 09:00–16:00). dir = [from, to] degrees the wind blows FROM, read clockwise (230,133 wraps through north). speed = [min, max] km/h. min_hours = minimum consecutive hours. max_cloud = max total cloud % per hour (defaults.max_cloud unless the spot sets its own).",
+  "defaults": {"max_cloud": 75},
+  "spots": [
+    {"id": "zichron-yaakov", "name": "Zichron Yaakov", "lat": 32.58, "lon": 34.95, "hours": [9, 16], "dir": [250, 330], "speed": [13, 25], "min_hours": 2},
+    {"id": "beit-jean", "name": "Beit Jean (7winds Har Haari)", "lat": 32.635675, "lon": 35.402343, "hours": [9, 16], "dir": [140, 200], "speed": [5, 20], "min_hours": 2},
+    {"id": "tavor", "name": "Tavor take off", "lat": 32.688831, "lon": 35.38186, "hours": [9, 14], "dir": [200, 280], "speed": [10, 16], "min_hours": 2},
+    {"id": "arsuf", "name": "Arsuf", "lat": 32.21324, "lon": 34.81573, "hours": [8, 17], "dir": [200, 300], "speed": [10, 17], "min_hours": 2},
+    {"id": "gidona", "name": "Gid'ona", "lat": 32.54915, "lon": 35.35853, "hours": [7, 17], "dir": [50, 100], "speed": [5, 18], "min_hours": 2},
+    {"id": "matred", "name": "Matred", "lat": 30.605278, "lon": 34.796111, "hours": [9, 14], "dir": [230, 133], "speed": [5, 15], "min_hours": 2},
+    {"id": "nahshon", "name": "Nahshon", "lat": 31.83117, "lon": 34.95548, "hours": [9, 16], "dir": [140, 230], "speed": [10, 15], "min_hours": 2},
+    {"id": "sharona", "name": "Sharona", "lat": 32.72533, "lon": 35.46692, "hours": [6, 17], "dir": [70, 130], "speed": [12, 22], "min_hours": 2},
+    {"id": "metzoke-dragot", "name": "Metzoke Dragot", "lat": 31.59126, "lon": 35.39327, "hours": [10, 15], "dir": [20, 130], "speed": [8, 16], "min_hours": 2}
+  ]
+}

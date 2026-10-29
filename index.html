@@ -116,7 +116,8 @@
     document.getElementById('lede').replaceChildren(
       el('b', '', String(run.windows)), document.createTextNode(' flyable windows at '),
       el('b', '', String(run.spots_with_windows)), document.createTextNode(' of ' + d.spots.length + ' takeoffs in the next 7 days · '),
-      el('b', '', String(run.changes)), document.createTextNode(' changes since the previous run · updated ' + day(run.run_at) + ' ' + hm(run.run_at) + ' · v' + run.version));
+      el('b', '', String(run.changes)), document.createTextNode(' changes since the previous run · updated ' + day(run.run_at) + ' ' + hm(run.run_at) + ' · v' + run.version +
+        ' · criteria ' + (run.config_source === 'fallback' ? 'last good copy' : run.config_commit ? '@' + run.config_commit : 'built-in')));
 
     var d0 = new Date(run.run_at.slice(0, 10) + 'T12:00:00Z'), days = [];
     for (var k = 0; k < 7; k++) days.push(new Date(d0.getTime() + k * 864e5).toISOString().slice(0, 10));

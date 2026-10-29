@@ -1,0 +1,5 @@
+# Files Cloudflare must NOT serve publicly (repo-only)
+README.md
+*.md
+config/
+.assetsignore

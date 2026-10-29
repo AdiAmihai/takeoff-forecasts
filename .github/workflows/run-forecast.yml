@@ -19,6 +19,8 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # full history, so the criteria commit label is the last edit of config/spots.json
 
       - uses: actions/setup-python@v5
         with:

@@ -37,6 +37,8 @@
   .spot { font-weight: 600; display: block; }
   a.wg { color: inherit; text-decoration: underline; text-decoration-color: var(--muted); text-decoration-style: dotted; text-underline-offset: 3px; }
   a.wg:hover { color: var(--accent); text-decoration-color: var(--accent); }
+  a.wgx { font-size: 10px; font-weight: 600; color: var(--accent); text-decoration: none; border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; vertical-align: 1px; }
+  a.wgx:hover { border-color: var(--accent); }
   .crit { color: var(--muted); font-size: 11px; display: block; }
   .win { display: block; border-radius: 6px; padding: 3px 7px; margin: 2px 0; background: var(--ok-bg); }
   .win.gust { background: var(--warn-bg); }
@@ -116,7 +118,7 @@
     </section>
     <section class="card">
       <h2>Takeoff criteria</h2>
-      <p class="note">Direction is where the wind blows from, read clockwise; hours are local (Israel time). Takeoff names link to Windguru.</p>
+      <p class="note">Direction is where the wind blows from, read clockwise; hours are local (Israel time). Takeoff names open their location on OpenStreetMap; <b>WG</b> opens Windguru.</p>
       <div class="scroll" id="spots"></div>
     </section>
   </div>
@@ -151,12 +153,20 @@
   function n1(x) { return x === '' || x == null ? '' : Number(x).toFixed(1); }
   function i0(x) { return x === '' || x == null ? '' : String(Math.round(Number(x))); }
   function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
-  var WG = {};  // spot_id -> Windguru link (from the spots list)
+  var WG = {}, LOC = {};  // spot_id -> Windguru link / [lat, lon] (from the spots list)
+  function coord(x) { var v = Number(x); return x === '' || x == null || !isFinite(v) ? null : v; }
+  function osmUrl(lat, lon) { return 'https://www.openstreetmap.org/?mlat=' + lat + '&mlon=' + lon + '#map=15/' + lat + '/' + lon; }
+  // Takeoff name opens its point on OpenStreetMap; the small "WG" next to it opens Windguru.
   function spotLink(r, text) {
+    var ll = LOC[r.spot_id] || (coord(r.lat) != null && coord(r.lon) != null ? [coord(r.lat), coord(r.lon)] : null);
+    if (!ll) return document.createTextNode(text);
+    var a = el('a', 'wg', text); a.href = osmUrl(ll[0], ll[1]); a.target = '_blank'; a.rel = 'noopener';
+    a.title = 'Show ' + text + ' on OpenStreetMap (' + ll[0].toFixed(4) + ', ' + ll[1].toFixed(4) + ')'; return a;
+  }
+  function wgLink(r) {
     var href = WG[r.spot_id] || r.windguru;
-    if (!href || !/^https:\/\/www\.windguru\.cz\//.test(href)) return document.createTextNode(text);
-    var a = el('a', 'wg', text); a.href = href; a.target = '_blank'; a.rel = 'noopener';
-    a.title = 'Open ' + text + ' in Windguru'; return a;
+    if (!href || !/^https:\/\/www\.windguru\.cz\//.test(href)) return null;
+    var a = el('a', 'wgx', 'WG'); a.href = href; a.target = '_blank'; a.rel = 'noopener'; a.title = 'Open ' + r.spot + ' in Windguru'; return a;
   }
   function isGusty(w) { return w.gusty === true || w.gusty === 'true' || w.gusty === 'True'; }
 
@@ -198,23 +208,27 @@
   function fetchSpot(s) {
     if (CACHE[s.spot_id]) return CACHE[s.spot_id];
     var q = new URLSearchParams({ latitude: s.lat, longitude: s.lon,
-      hourly: 'wind_speed_10m,wind_direction_10m,wind_gusts_10m,cloud_cover',
+      hourly: 'wind_speed_10m,wind_direction_10m,wind_gusts_10m,cloud_cover,temperature_2m,dew_point_2m',
       models: MODELS.map(function (m) { return m[0]; }).join(','), wind_speed_unit: 'kmh',
       timezone: 'Asia/Jerusalem', forecast_days: 7 });
     var p = fetch(API + '?' + q.toString())
       .then(function (r) { if (!r.ok) throw new Error(r.status === 429 ? 'Open-Meteo is busy (too many requests) — try again in a minute.' : 'Open-Meteo answered HTTP ' + r.status); return r.json(); })
-      .then(function (j) { return { at: new Date(), rows: blend(j.hourly, crit(s)) }; });
+      .then(function (j) { var elev = coord(j.elevation); return { at: new Date(), elev: elev, rows: blend(j.hourly, crit(s), elev) }; });
     p.catch(function () { delete CACHE[s.spot_id]; });
     CACHE[s.spot_id] = p; return p;
   }
 
-  function blend(h, c) {
+  // Cumulus cloud base / dew point height ≈ 125 m per °C of (temperature − dew point) above the ground.
+  var BASE_M_PER_C = 125;
+  function blend(h, c, elev) {
     return h.time.map(function (t, i) {
-      var sp = [], dr = [], gu = [], cl = [], per = [];
+      var sp = [], dr = [], gu = [], cl = [], tt = [], td = [], cb = [], per = [];
       MODELS.forEach(function (m) {
         function v(k) { var a = h[k + '_' + m[0]]; return a ? a[i] : null; }
         var s = v('wind_speed_10m'), d = v('wind_direction_10m'), g = v('wind_gusts_10m'), cc = v('cloud_cover');
-        per.push({ s: s, d: d, g: g, c: cc });
+        var T = v('temperature_2m'), D = v('dew_point_2m'), base = T != null && D != null ? Math.max(0, T - D) * BASE_M_PER_C : null;
+        if (T != null) tt.push(T); if (D != null) td.push(D); if (base != null) cb.push(base);
+        per.push({ s: s, d: d, g: g, c: cc, b: base });
         if (s == null || d == null) return;
         sp.push(s); dr.push(d); if (g != null) gu.push(g); if (cc != null) cl.push(cc);
       });
@@ -223,6 +237,10 @@
       r.speed = mean(sp); r.gust = gu.length ? mean(gu) : r.speed; r.dir = Math.round(circMean(dr));
       r.sSpeed = pstdev(sp); r.sDir = Math.round(circStd(dr));
       r.cloud = cl.length ? Math.round(mean(cl)) : null; r.sCloud = cl.length > 1 ? Math.round(pstdev(cl)) : null;
+      r.temp = tt.length ? mean(tt) : null; r.dew = td.length ? mean(td) : null;
+      r.baseAgl = cb.length ? Math.round(mean(cb) / 10) * 10 : null;
+      r.baseAsl = r.baseAgl != null && elev != null ? Math.round((mean(cb) + elev) / 10) * 10 : null;
+      r.sBase = cb.length > 1 ? Math.round(pstdev(cb) / 10) * 10 : null;
       r.gustFlag = r.gust - r.speed > GUST_FLAG_KMH;
       r.inHours = c.hours ? hr >= c.hours[0] && hr < c.hours[1] : true;
       var why = [];
@@ -272,7 +290,8 @@
     var want = s.spot_id + ST.day;
     fetchSpot(s).then(function (res) {
       if (ST.spot.spot_id + ST.day !== want) return;
-      src.textContent = 'Live Open-Meteo, fetched ' + res.at.toTimeString().slice(0, 5) + ' — may differ slightly from the last run.';
+      src.textContent = 'Live Open-Meteo, fetched ' + res.at.toTimeString().slice(0, 5) + ' — may differ slightly from the last run.' +
+        (res.elev != null ? ' Ground ' + Math.round(res.elev) + ' m.' : '');
       var rows = res.rows.filter(function (r) { return r.date === ST.day; });
       var c = crit(s);
       var shown = ST.all ? rows : rows.filter(function (r) { var h0 = c.hours ? c.hours[0] - 2 : 6, h1 = c.hours ? c.hours[1] + 2 : 20; return r.hour >= Math.max(0, h0) && r.hour < Math.min(24, h1); });
@@ -286,15 +305,19 @@
 
   function hourTable(rows) {
     var t = el('table', 'dt-tbl'), hr = t.createTHead().insertRow(), tb = t.createTBody();
-    var heads = [['Hour', ''], ['km/h', 'num'], ['Gust', 'num'], ['Dir', 'num'], ['± km/h', 'num'], ['± °', 'num'], ['Cloud %', 'num'], ['Models', 'num'], ['Fits?', '']];
-    heads.forEach(function (h) { hr.appendChild(el('th', h[1], h[0])); });
+    var heads = [['Hour', ''], ['km/h', 'num'], ['Gust', 'num'], ['Dir', 'num'], ['± km/h', 'num'], ['± °', 'num'], ['Cloud %', 'num'], ['°C / dew', 'num'], ['Base m', 'num'], ['Models', 'num'], ['Fits?', '']];
+    heads.forEach(function (h) {
+      var th = el('th', h[1], h[0]);
+      if (h[0] === 'Base m') th.title = 'Cumulus cloud base (dew point height) above sea level ≈ ground + 125 m × (temperature − dew point); ± is the spread across models';
+      hr.appendChild(th);
+    });
     if (ST.models) MODELS.forEach(function (m) { var th = el('th', 'm num', m[1]); th.title = m[0] + ': speed / gust km/h · direction'; hr.appendChild(th); });
     rows.forEach(function (r) {
       var tr = tb.insertRow();
       tr.className = !r.inHours ? 'out' : r.fit ? 'fit' + (r.gustFlag ? ' gust' : '') : '';
       tr.appendChild(el('td', '', String(r.hour).padStart(2, '0') + ':00'));
       if (!r.ok) {
-        var td = el('td', 'empty', 'Fewer than ' + MIN_MODELS + ' models'); td.colSpan = 8; tr.appendChild(td);
+        var td = el('td', 'empty', 'Fewer than ' + MIN_MODELS + ' models'); td.colSpan = 10; tr.appendChild(td);
       } else {
         tr.appendChild(el('td', 'num', r.speed.toFixed(1)));
         tr.appendChild(el('td', 'num', r.gust.toFixed(1) + (r.gustFlag ? ' ⚠️' : '')));
@@ -302,6 +325,10 @@
         tr.appendChild(el('td', 'num', r.sSpeed.toFixed(1)));
         tr.appendChild(el('td', 'num', String(r.sDir)));
         tr.appendChild(el('td', 'num', r.cloud == null ? '' : r.cloud + (r.sCloud != null ? ' ±' + r.sCloud : '')));
+        tr.appendChild(el('td', 'num', r.temp == null ? '' : r.temp.toFixed(0) + ' / ' + (r.dew == null ? '–' : r.dew.toFixed(0))));
+        var bc = el('td', 'num', r.baseAsl != null ? r.baseAsl + (r.sBase != null ? ' ±' + r.sBase : '') : r.baseAgl != null ? r.baseAgl + ' AGL' : '');
+        if (r.baseAgl != null) bc.title = r.baseAgl + ' m above the ground';
+        tr.appendChild(bc);
         tr.appendChild(el('td', 'num', String(r.models)));
         var f = el('td', 'fitc');
         if (!r.inHours) f.textContent = '—';
@@ -310,7 +337,9 @@
         tr.appendChild(f);
       }
       if (ST.models) r.per.forEach(function (p) {
-        tr.appendChild(el('td', 'm num', p.s == null ? '' : Math.round(p.s) + (p.g != null ? '/' + Math.round(p.g) : '') + (p.d != null ? ' ' + arrow(p.d) + Math.round(p.d) + '°' : '')));
+        var mc = el('td', 'm num', p.s == null ? '' : Math.round(p.s) + (p.g != null ? '/' + Math.round(p.g) : '') + (p.d != null ? ' ' + arrow(p.d) + Math.round(p.d) + '°' : ''));
+        if (p.b != null) mc.title = 'Cloud base ≈ ' + Math.round(p.b / 10) * 10 + ' m above ground';
+        tr.appendChild(mc);
       });
     });
     return t;
@@ -358,7 +387,7 @@
     function move(ev) {
       var bb = svg.getBoundingClientRect(), px = (ev.clientX - bb.left) * W / bb.width, k = Math.floor((px - L) / bw);
       var r = rows[k]; if (!r || !r.ok) { tip.style.display = 'none'; return; }
-      tip.textContent = String(r.hour).padStart(2, '0') + ':00 · ' + r.speed.toFixed(0) + ' km/h (±' + r.sSpeed.toFixed(0) + ') · gust ' + r.gust.toFixed(0) + ' · ' + r.dir + '°' + (r.cloud != null ? ' · ☁' + r.cloud + '%' : '');
+      tip.textContent = String(r.hour).padStart(2, '0') + ':00 · ' + r.speed.toFixed(0) + ' km/h (±' + r.sSpeed.toFixed(0) + ') · gust ' + r.gust.toFixed(0) + ' · ' + r.dir + '°' + (r.cloud != null ? ' · ☁' + r.cloud + '%' : '') + (r.baseAsl != null ? ' · base ' + r.baseAsl + ' m' : '');
       tip.style.display = 'block';
       var left = (x(k) * bb.width / W), w = tip.offsetWidth;
       tip.style.left = Math.max(0, Math.min(bb.width - w, left - w / 2)) + 'px'; tip.style.top = '0px';
@@ -399,7 +428,10 @@
   function render(d) {
     DATA = d;
     var run = d.run;
-    d.spots.forEach(function (s) { if (s.windguru) WG[s.spot_id] = s.windguru; });
+    d.spots.forEach(function (s) {
+      if (s.windguru) WG[s.spot_id] = s.windguru;
+      if (coord(s.lat) != null && coord(s.lon) != null) LOC[s.spot_id] = [coord(s.lat), coord(s.lon)];
+    });
     document.getElementById('lede').replaceChildren(
       el('b', '', String(run.windows)), document.createTextNode(' flyable windows at '),
       el('b', '', String(run.spots_with_windows)), document.createTextNode(' of ' + d.spots.length + ' takeoffs in the next 7 days · '),
@@ -415,7 +447,9 @@
     d.spots.forEach(function (s) {
       var tr = tb.insertRow(), c0 = tr.insertCell();
       c0.className = 'spotcell'; c0.dataset.spot = s.spot_id; c0.title = 'Double-click for hour-by-hour detail';
-      var nm = el('span', 'spot'); nm.appendChild(spotLink(s, s.spot)); c0.appendChild(nm);
+      var nm = el('span', 'spot'); nm.appendChild(spotLink(s, s.spot));
+      var wg = wgLink(s); if (wg) { nm.appendChild(document.createTextNode(' ')); nm.appendChild(wg); }
+      c0.appendChild(nm);
       c0.appendChild(el('span', 'crit', s.dir + '° · ' + s.speed + ' km/h · ' + s.hours + ' · ☁≤' + s.max_cloud + '%'));
       days.forEach(function (x) {
         var c = tr.insertCell();

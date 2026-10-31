@@ -3,8 +3,8 @@
   "defaults": {"max_cloud": 90},
   "spots": [
     {"id": "beit-jean", "name": "Har Haari", "lat": 32.954072, "lon": 35.374492, "hours": [5, 16], "dir": [140, 200], "speed": [5, 20], "min_hours": 2},
-    {"id": "sharona", "name": "Sharona", "lat":32.72539,"lon": 35.477841, "hours": [6, 17], "dir": [70, 130], "speed": [12, 22], "min_hours": 2},
-    {"id": "tavor", "name": "Tavor", "lat": 32.688831, "lon": 35.38186, "hours": [9, 14], "dir": [200, 280], "speed": [10, 16], "min_hours": 2},
+    {"id": "sharona", "name": "Sharona", "lat":32.72539,"lon": 35.477841, "hours": [6, 17], "dir": [50, 120], "speed": [12, 22], "min_hours": 2},
+    {"id": "tavor", "name": "Tavor", "lat": 32.688831, "lon": 35.38186, "hours": [9, 14], "dir": [230, 280], "speed": [10, 16], "min_hours": 2},
     {"id": "zichron-yaakov", "name": "Zichron-yaakov", "lat": 32.580567, "lon": 34.946129, "hours": [9, 16], "dir": [250, 330], "speed": [13, 25], "min_hours": 2},
     {"id": "gidona", "name": "Gilboa", "lat": 32.535868, "lon": 35.376974, "hours": [7, 17], "dir": [10, 145], "speed": [5, 18], "min_hours": 2},
     {"id": "arsuf", "name": "Arsuf", "lat": 32.204834 , "lon": 34.810848, "hours": [8, 17], "dir": [200, 300], "speed": [10, 17], "min_hours": 2},

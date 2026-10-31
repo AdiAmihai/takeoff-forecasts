@@ -78,6 +78,8 @@
   .dt-tbl tr.fit.gust td { background: var(--warn-bg); }
   .dt-tbl td.fitc { font-weight: 600; }
   .dt-tbl .why { color: var(--bad); font-weight: 400; font-size: 12px; }
+  .dt-tbl td.blue { color: var(--muted); }
+  .dt-tbl td.blue small { color: var(--accent); font-weight: 600; }
   .dt-tbl th.m, .dt-tbl td.m { border-left: 1px solid var(--line); }
   .arrow { display: inline-block; width: 1em; text-align: center; color: var(--accent); }
   .dt-tip { position: absolute; pointer-events: none; background: var(--fg); color: var(--bg); font-size: 12px; border-radius: 6px;
@@ -211,36 +213,64 @@
       hourly: 'wind_speed_10m,wind_direction_10m,wind_gusts_10m,cloud_cover,temperature_2m,dew_point_2m',
       models: MODELS.map(function (m) { return m[0]; }).join(','), wind_speed_unit: 'kmh',
       timezone: 'Asia/Jerusalem', forecast_days: 7 });
-    var p = fetch(API + '?' + q.toString())
-      .then(function (r) { if (!r.ok) throw new Error(r.status === 429 ? 'Open-Meteo is busy (too many requests) — try again in a minute.' : 'Open-Meteo answered HTTP ' + r.status); return r.json(); })
-      .then(function (j) { var elev = coord(j.elevation); return { at: new Date(), elev: elev, rows: blend(j.hourly, crit(s), elev) }; });
+    function get(qs) {
+      return fetch(API + '?' + qs.toString())
+        .then(function (r) { if (!r.ok) throw new Error(r.status === 429 ? 'Open-Meteo is busy (too many requests) — try again in a minute.' : 'Open-Meteo answered HTTP ' + r.status); return r.json(); });
+    }
+    // Cloud base uses each model's own (not downscaled) 2 m temperature and dew point at its own
+    // grid-cell height: one request per model with elevation=nan. A failure here only blanks the base columns.
+    var thermo = Promise.all(MODELS.map(function (m) {
+      var tq = new URLSearchParams({ latitude: s.lat, longitude: s.lon, models: m[0], elevation: 'nan',
+        hourly: 'temperature_2m,dew_point_2m' + (m[0] === 'gfs_seamless' ? ',boundary_layer_height' : ''),
+        timezone: 'Asia/Jerusalem', forecast_days: 7 });
+      return get(tq).then(function (j) { return { model: m[0], elev: coord(j.elevation), h: j.hourly }; }, function () { return null; });
+    }));
+    var p = Promise.all([get(q), thermo])
+      .then(function (a) { var j = a[0], elev = coord(j.elevation); return { at: new Date(), elev: elev, rows: blend(j.hourly, crit(s), elev, a[1]) }; });
     p.catch(function () { delete CACHE[s.spot_id]; });
     CACHE[s.spot_id] = p; return p;
   }
 
-  // Cumulus cloud base / dew point height ≈ 125 m per °C of (temperature − dew point) above the ground.
+  // Cumulus cloud base / dew point height ≈ 125 m per °C of (temperature − dew point) above the model's ground,
+  // plus that model's grid-cell height = metres above sea level. Thermal top = GFS boundary layer height.
   var BASE_M_PER_C = 125;
-  function blend(h, c, elev) {
+  function thermoAt(th, t) {
+    var out = {};
+    (th || []).forEach(function (x) {
+      if (!x || !x.h || !x.h.time) return;
+      var i = x.h.time.indexOf(t); if (i < 0) return;
+      function v(k) { var a = x.h[k] || x.h[k + '_' + x.model]; return a ? a[i] : null; }
+      var T = v('temperature_2m'), D = v('dew_point_2m'), blh = v('boundary_layer_height');
+      out[x.model] = { base: T != null && D != null && x.elev != null ? x.elev + Math.max(0, T - D) * BASE_M_PER_C : null,
+                       top: blh != null && x.elev != null ? x.elev + blh : null };
+    });
+    return out;
+  }
+  function blend(h, c, elev, th) {
     return h.time.map(function (t, i) {
+      var nat = thermoAt(th, t), top = null;
       var sp = [], dr = [], gu = [], cl = [], tt = [], td = [], cb = [], per = [];
       MODELS.forEach(function (m) {
         function v(k) { var a = h[k + '_' + m[0]]; return a ? a[i] : null; }
         var s = v('wind_speed_10m'), d = v('wind_direction_10m'), g = v('wind_gusts_10m'), cc = v('cloud_cover');
-        var T = v('temperature_2m'), D = v('dew_point_2m'), base = T != null && D != null ? Math.max(0, T - D) * BASE_M_PER_C : null;
+        var T = v('temperature_2m'), D = v('dew_point_2m'), base = nat[m[0]] ? nat[m[0]].base : null;
+        if (nat[m[0]] && nat[m[0]].top != null) top = nat[m[0]].top;
         if (T != null) tt.push(T); if (D != null) td.push(D); if (base != null) cb.push(base);
         per.push({ s: s, d: d, g: g, c: cc, b: base });
         if (s == null || d == null) return;
         sp.push(s); dr.push(d); if (g != null) gu.push(g); if (cc != null) cl.push(cc);
       });
-      var hr = Number(t.slice(11, 13)), r = { time: t, date: t.slice(0, 10), hour: hr, per: per, models: sp.length, ok: sp.length >= MIN_MODELS };
+      var hr = Number(t.slice(11, 13)), r = { time: t, date: t.slice(0, 10), hour: hr, per: per, nat: nat, models: sp.length, ok: sp.length >= MIN_MODELS };
       if (!r.ok) { r.why = ['too few models']; return r; }
       r.speed = mean(sp); r.gust = gu.length ? mean(gu) : r.speed; r.dir = Math.round(circMean(dr));
       r.sSpeed = pstdev(sp); r.sDir = Math.round(circStd(dr));
       r.cloud = cl.length ? Math.round(mean(cl)) : null; r.sCloud = cl.length > 1 ? Math.round(pstdev(cl)) : null;
       r.temp = tt.length ? mean(tt) : null; r.dew = td.length ? mean(td) : null;
-      r.baseAgl = cb.length ? Math.round(mean(cb) / 10) * 10 : null;
-      r.baseAsl = r.baseAgl != null && elev != null ? Math.round((mean(cb) + elev) / 10) * 10 : null;
+      r.baseAsl = cb.length ? Math.round(mean(cb) / 10) * 10 : null;
       r.sBase = cb.length > 1 ? Math.round(pstdev(cb) / 10) * 10 : null;
+      r.aboveTO = r.baseAsl != null && elev != null ? r.baseAsl - Math.round(elev / 10) * 10 : null;
+      r.top = top != null ? Math.round(top / 10) * 10 : null;
+      r.blue = r.baseAsl != null && r.top != null && r.baseAsl > r.top;
       r.gustFlag = r.gust - r.speed > GUST_FLAG_KMH;
       r.inHours = c.hours ? hr >= c.hours[0] && hr < c.hours[1] : true;
       var why = [];
@@ -305,10 +335,12 @@
 
   function hourTable(rows) {
     var t = el('table', 'dt-tbl'), hr = t.createTHead().insertRow(), tb = t.createTBody();
-    var heads = [['Hour', ''], ['km/h', 'num'], ['Gust', 'num'], ['Dir', 'num'], ['± km/h', 'num'], ['± °', 'num'], ['Cloud %', 'num'], ['°C / dew', 'num'], ['Base m', 'num'], ['Models', 'num'], ['Fits?', '']];
+    var heads = [['Hour', ''], ['km/h', 'num'], ['Gust', 'num'], ['Dir', 'num'], ['± km/h', 'num'], ['± °', 'num'], ['Cloud %', 'num'], ['°C / dew', 'num'], ['Base m', 'num'], ['Thermals m', 'num'], ['Models', 'num'], ['Fits?', '']];
     heads.forEach(function (h) {
       var th = el('th', h[1], h[0]);
-      if (h[0] === 'Base m') th.title = 'Cumulus cloud base (dew point height) above sea level ≈ ground + 125 m × (temperature − dew point); ± is the spread across models';
+      if (h[0] === 'Base m') th.title = 'Cumulus cloud base (dew point height), m above sea level: each model\'s own ground height + 125 m × (its 2 m temperature − dew point), averaged; ± is the spread across models. "blue" = above the thermal top, so no cumulus expected.';
+      if (h[0] === 'Thermals m') th.title = 'Thermal top, m above sea level: GFS boundary layer height + its ground height (dry thermals, no glider sink subtracted)';
+      if (h[0] === '°C / dew') th.title = 'Temperature / dew point at takeoff height';
       hr.appendChild(th);
     });
     if (ST.models) MODELS.forEach(function (m) { var th = el('th', 'm num', m[1]); th.title = m[0] + ': speed / gust km/h · direction'; hr.appendChild(th); });
@@ -317,7 +349,7 @@
       tr.className = !r.inHours ? 'out' : r.fit ? 'fit' + (r.gustFlag ? ' gust' : '') : '';
       tr.appendChild(el('td', '', String(r.hour).padStart(2, '0') + ':00'));
       if (!r.ok) {
-        var td = el('td', 'empty', 'Fewer than ' + MIN_MODELS + ' models'); td.colSpan = 10; tr.appendChild(td);
+        var td = el('td', 'empty', 'Fewer than ' + MIN_MODELS + ' models'); td.colSpan = 11; tr.appendChild(td);
       } else {
         tr.appendChild(el('td', 'num', r.speed.toFixed(1)));
         tr.appendChild(el('td', 'num', r.gust.toFixed(1) + (r.gustFlag ? ' ⚠️' : '')));
@@ -326,9 +358,11 @@
         tr.appendChild(el('td', 'num', String(r.sDir)));
         tr.appendChild(el('td', 'num', r.cloud == null ? '' : r.cloud + (r.sCloud != null ? ' ±' + r.sCloud : '')));
         tr.appendChild(el('td', 'num', r.temp == null ? '' : r.temp.toFixed(0) + ' / ' + (r.dew == null ? '–' : r.dew.toFixed(0))));
-        var bc = el('td', 'num', r.baseAsl != null ? r.baseAsl + (r.sBase != null ? ' ±' + r.sBase : '') : r.baseAgl != null ? r.baseAgl + ' AGL' : '');
-        if (r.baseAgl != null) bc.title = r.baseAgl + ' m above the ground';
+        var bc = el('td', 'num' + (r.blue ? ' blue' : ''), r.baseAsl != null ? r.baseAsl + (r.sBase != null ? ' ±' + r.sBase : '') : '');
+        if (r.blue) bc.appendChild(el('small', '', ' blue'));
+        if (r.aboveTO != null) bc.title = (r.aboveTO >= 0 ? r.aboveTO + ' m above' : -r.aboveTO + ' m below') + ' takeoff' + (r.blue ? ' — above the thermal top, so no cumulus expected (blue thermals)' : '');
         tr.appendChild(bc);
+        tr.appendChild(el('td', 'num', r.top != null ? String(r.top) : ''));
         tr.appendChild(el('td', 'num', String(r.models)));
         var f = el('td', 'fitc');
         if (!r.inHours) f.textContent = '—';
@@ -336,9 +370,10 @@
         else f.appendChild(el('span', 'why', r.why.join(', ')));
         tr.appendChild(f);
       }
-      if (ST.models) r.per.forEach(function (p) {
+      if (ST.models) r.per.forEach(function (p, mi) {
         var mc = el('td', 'm num', p.s == null ? '' : Math.round(p.s) + (p.g != null ? '/' + Math.round(p.g) : '') + (p.d != null ? ' ' + arrow(p.d) + Math.round(p.d) + '°' : ''));
-        if (p.b != null) mc.title = 'Cloud base ≈ ' + Math.round(p.b / 10) * 10 + ' m above ground';
+        var nb = r.nat && r.nat[MODELS[mi][0]];
+        if (nb && nb.base != null) mc.title = 'Cloud base ≈ ' + Math.round(nb.base / 10) * 10 + ' m above sea level';
         tr.appendChild(mc);
       });
     });
